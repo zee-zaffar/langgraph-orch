@@ -34,7 +34,7 @@ def get_azure_openai_llm():
     return AzureChatOpenAI(
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01"),
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview"),
         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         temperature=0.7,
         max_tokens=1000,
@@ -64,69 +64,159 @@ else:
         print("Azure OpenAI not configured, using Anthropic Claude...")
     llm = get_fallback_llm()
 
+# Structured output for message classification
+class MessageClassifier(BaseModel):
+    message_type: Literal["cardiologist", "dentist", "general"] = Field(
+        ..., 
+        description="Classify if the message is related to cardiology (heart issues), dentistry (teeth) or a general issue."
+    )
+
 class State(TypedDict):
     """State schema for the conversation graph."""
     messages: Annotated[list, add_messages]
+    message_type: str|None
     topic: str
     audience: Literal["children", "teenagers", "adults", "seniors"]
     length: Literal["short", "medium", "long"]
 
+def classify_message(state: State):
+    last_message = state["messages"][-1]
+    classifier_llm = llm.with_structured_output(MessageClassifier)
+
+    result = classifier_llm.invoke([
+        {
+            "role": "system", 
+            "content": """Classify the user's message into one of the following categories that is most approrpirate to handle the issue:
+            - cardiologist, 
+            - dentist,
+            - general """
+        },
+        {
+            "role": "user", 
+            "content": last_message.content
+        }
+    ])
+
+    return {"message_type": result.message_type}
+
+def cardilogist_agent(state: State):
+    last_message = state["messages"][-1]
+    mesages = [
+        {
+            "role": "system", 
+            "content": """
+                            You are a cardilogist agent that deal with all heart related issues.."
+                            should only respond to issues relates to heart problems. 
+                        """
+        },
+        {
+            "role": "user", 
+            "content": last_message.content
+        }
+    ]
+
+    reply = llm.invoke(mesages)
+    return {"messages": [{"role": "assistant", "content": "Cardiologist Agent:" + reply.content}]}
+
+def general_agent(state: State):
+    last_message = state["messages"][-1]
+    mesages = [
+        {
+            "role": "system", 
+            "content": """
+                            You are a general agent that deal with headache, fever and pain related issues.."
+                            should only respond to issues relates to general problems. 
+                        """
+        },
+        {
+            "role": "user", 
+            "content": last_message.content
+        }
+    ]
+
+    reply = llm.invoke(mesages)
+    return {"messages": [{"role": "assistant", "content":"General Agent:" + reply.content}]}
+
+def dentist_agent(state: State):
+    last_message = state["messages"][-1]
+    mesages = [
+        {
+            "role": "system", 
+            "content": """
+                            You are a dentist agent that deal with all teeth related issues.."
+                            should only respond to issues relates to teeth problems. 
+                        """
+        },
+        {
+            "role": "user", 
+            "content": last_message.content
+        }
+    ]
+   
+    reply = llm.invoke(mesages)
+    return {"messages": [{"role": "assistant", "content": "Dentist Agent:" + reply.content}]}
+
+def router(state: State):
+    message_type = state.get("message_type","general")
+
+    if message_type == "cardiologist":
+        return {"next":"cardiologist"}
+    elif message_type == "dentist":
+        return {"next":"dentist"}
+    else:
+        return {"next":"general"}
+
+
 # Create the state graph
 graph_builder = StateGraph(State)
 
-def chatbot(state: State):
-    """
-    Main chatbot function that processes messages using the configured LLM.
-    Includes error handling for API failures.
-    """
-    try:
-        response = llm.invoke(state["messages"])
-        return {"messages": [response]}
-    except Exception as e:
-        print(f"Error calling LLM: {e}")
-        # Return a fallback response
-        fallback_response = {
-            "role": "assistant", 
-            "content": "I'm sorry, I'm having trouble processing your request right now. Please try again."
-        }
-        return {"messages": [fallback_response]}
+#Build the graph flow
+graph_builder.add_node("classifier", classify_message)
+graph_builder.add_node("router", router)
+graph_builder.add_node("cardiologist", cardilogist_agent)
+graph_builder.add_node("dentist", dentist_agent)    
+graph_builder.add_node("general", general_agent)
 
-# Build the graph
-graph_builder.add_node("chatbot", chatbot)
-graph_builder.add_edge(START, "chatbot")
-graph_builder.add_edge("chatbot", END)
+graph_builder.add_edge(START, "classifier")
+graph_builder.add_edge("classifier", "router")
+
+graph_builder.add_conditional_edges(
+    "router",
+    lambda state: state.get("next"),
+    {
+        "cardiologist": "cardiologist",
+        "dentist": "dentist",
+        "general": "general"
+    }
+)
+
+graph_builder.add_edge("cardiologist", END)
+graph_builder.add_edge("dentist", END)
+graph_builder.add_edge("general", END)
 
 # Compile the graph
 graph = graph_builder.compile()
 
-def main():
-    """Main execution function with proper error handling."""
-    try:
-        user_input = input("Enter a message: ")
-        
-        if not user_input.strip():
-            print("Please enter a valid message.")
-            return
-        
-        # Invoke the graph with user input
-        state = graph.invoke({
-            "messages": [{"role": "user", "content": user_input}],
-            "topic": "general",
-            "audience": "adults",
-            "length": "medium"
-        })
-        
-        # Print the final response from the chatbot
-        if state["messages"]:
-            print("\nBot response:")
-            print(state["messages"][-1].content)
-        else:
-            print("No response received.")
-            
-    except KeyboardInterrupt:
-        print("\nGoodbye!")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+
+def run_chatbot():
+    state = {"messages": [], "message_type": None}
+
+    while True:
+        user_input = input("Message: ")
+        if user_input == "exit":
+            print("Bye")
+            break
+
+        state["messages"] = state.get("messages", []) + [
+            {"role": "user", "content": user_input}
+        ]
+
+        state = graph.invoke(state)
+
+        if state.get("messages") and len(state["messages"]) > 0:
+            last_message = state["messages"][-1]
+            print(f"Assistant: {last_message.content}")
+
 
 if __name__ == "__main__":
-    main()
+    run_chatbot()
