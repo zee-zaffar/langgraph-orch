@@ -75,9 +75,9 @@ class State(TypedDict):
     """State schema for the conversation graph."""
     messages: Annotated[list, add_messages]
     message_type: str|None
-    topic: str
-    audience: Literal["children", "teenagers", "adults", "seniors"]
-    length: Literal["short", "medium", "long"]
+    # topic: str
+    # audience: Literal["children", "teenagers", "adults", "seniors"]
+    # length: Literal["short", "medium", "long"]
 
 def classify_message(state: State):
     last_message = state["messages"][-1]
@@ -86,10 +86,12 @@ def classify_message(state: State):
     result = classifier_llm.invoke([
         {
             "role": "system", 
-            "content": """Classify the user's message into one of the following categories that is most approrpirate to handle the issue:
-            - cardiologist, 
-            - dentist,
-            - general """
+            "content": """
+                            Classify the user's message into one of the following categories that is most approrpirate to handle the issue:
+                            - cardiologist, 
+                            - dentist,
+                            - general 
+                        """
         },
         {
             "role": "user", 
@@ -166,7 +168,6 @@ def router(state: State):
     else:
         return {"next":"general"}
 
-
 # Create the state graph
 graph_builder = StateGraph(State)
 
@@ -197,7 +198,6 @@ graph_builder.add_edge("general", END)
 # Compile the graph
 graph = graph_builder.compile()
 
-
 def run_chatbot():
     state = {"messages": [], "message_type": None}
 
@@ -216,7 +216,6 @@ def run_chatbot():
         if state.get("messages") and len(state["messages"]) > 0:
             last_message = state["messages"][-1]
             print(f"Assistant: {last_message.content}")
-
 
 if __name__ == "__main__":
     run_chatbot()
