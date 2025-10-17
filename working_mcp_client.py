@@ -131,7 +131,7 @@ def test_working_mcp_client():
     print("🚀 Testing Working MCP Client")
     print("=" * 50)
     
-    client = WorkingMCPClient("https://app-math-zee.azurewebsites.net")
+    client = WorkingMCPClient("https://app-math.azurewebsites.net/mcp")
     
     # Test math evaluation
     expressions = ["2 + 3", "5 * 6", "10 / 2", "7 - 4"]
