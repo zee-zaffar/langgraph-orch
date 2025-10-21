@@ -1,0 +1,25 @@
+# PowerShell Path Examples with .\ syntax
+
+# Current directory
+.\requirements.txt
+
+# Subdirectory from current location
+.\lg-demo\Scripts\python.exe
+
+# Multiple levels down
+.\azure-logic-app-project\logic-apps\http-trigger-app\workflow.json
+
+# Parent directory (use ..)
+..\requirements.txt
+
+# Current directory with forward slashes (also works)
+./requirements.txt
+
+# Mixed with commands
+pip install -r .\requirements.txt
+python .\main.py
+& .\lg-demo\Scripts\python.exe .\simple_weather_session.py
+
+# Directory navigation
+cd .\lg-demo
+Set-Location .\azure-logic-app-project
