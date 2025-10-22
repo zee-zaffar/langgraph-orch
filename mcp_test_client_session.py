@@ -44,10 +44,10 @@ async def create_weather_session():
 
 async def test_weather_session():
     """Test weather session directly"""
-    weather_url = "https://app-weather-fouumxxwmaqmu.azurewebsites.net/mcp"
-    
+    # weather_url = "https://app-weather-fouumxxwmaqmu.azurewebsites.net/mcp"
+    math_url = "https://app-math.azurewebsites.net/mcp"
     try:
-        async with streamablehttp_client(weather_url) as (read_stream, write_stream, _):
+        async with streamablehttp_client(math_url) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 
@@ -55,21 +55,21 @@ async def test_weather_session():
                 tools = tools_result.tools
                 
                 if tools:
-                    weather_tool = tools[0]
-                    print(f"🧪 Testing {weather_tool.name}...")
+                   for tool in tools:
+                        print(f"🧪 ToolName:  {tool.name}...")
                     
                     # Test weather for different locations
-                    locations = ["New York", "Chicago", "Miami"]
-                    
-                    for location in locations:
-                        try:
-                            result = await session.call_tool(weather_tool.name, {
-                                "location": location
-                            })
-                            content = result.content[0].text if result.content else "No data"
-                            print(f"✅ {location}: {content}")
-                        except Exception as e:
-                            print(f"❌ {location}: {e}")
+                locations = ["New York", "Chicago", "Miami"]
+                
+                # for location in locations:
+                #     try:
+                #         result = await session.call_tool(weather_tool.name, {
+                #             "location": location
+                #         })
+                #         content = result.content[0].text if result.content else "No data"
+                #         print(f"✅ {location}: {content}")
+                #     except Exception as e:
+                #         print(f"❌ {location}: {e}")
                 
     except Exception as e:
         print(f"❌ Weather session test failed: {e}")
@@ -79,7 +79,7 @@ async def main():
     llm = AzureChatOpenAI(
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_version=os.getenv("api_version"),
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         temperature=0.7,
         max_tokens=1000,
@@ -104,53 +104,46 @@ async def main():
     #         }
     #     }
     # )
-
-    print("🚀 Testing MCP server connections using sessions...")
-    
-    # Test weather server using direct session
-    print("\n" + "="*50)
-    print("📡 TESTING WEATHER SERVER WITH SESSION")
-    print("="*50)
-    
+ 
     await test_weather_session()
     
-    print("\n" + "="*50)
-    print("📡 TESTING WITH MULTISERVER CLIENT")
-    print("="*50)
+    # print("\n" + "="*50)
+    # print("📡 TESTING WITH MULTISERVER CLIENT")
+    # print("="*50)
     
     # Test weather server individually using MultiServerMCPClient
-    try:
-        weather_client = MultiServerMCPClient({
-            "weather": {
-                "url": "https://app-weather-fouumxxwmaqmu.azurewebsites.net/mcp",
-                "transport": "streamable_http",
-            }
-        })
-        weather_tools = await weather_client.get_tools()
-        print(f"✅ Weather server tools via MultiServer: {[tool.name for tool in weather_tools]}")
+    # try:
+    #     weather_client = MultiServerMCPClient({
+    #         "weather": {
+    #             "url": "https://app-weather-fouumxxwmaqmu.azurewebsites.net/mcp",
+    #             "transport": "streamable_http",
+    #         }
+    #     })
+    #     weather_tools = await weather_client.get_tools()
+    #     print(f"✅ Weather server tools via MultiServer: {[tool.name for tool in weather_tools]}")
         
-        # Create agent and test
-        if weather_tools:
-            agent = create_react_agent(llm, weather_tools)
-            response = await agent.ainvoke({"messages": "what is the weather in Chicago?"})
-            messages = response.get("messages", [])
-            print("🤖 Agent Response:", messages[-1].content)
+    #     # Create agent and test
+    #     if weather_tools:
+    #         agent = create_react_agent(llm, weather_tools)
+    #         response = await agent.ainvoke({"messages": "what is the weather in Chicago?"})
+    #         messages = response.get("messages", [])
+    #         print("🤖 Agent Response:", messages[-1].content)
             
-    except Exception as e:
-        print(f"❌ Weather server error: {e}")
+    # except Exception as e:
+    #     print(f"❌ Weather server error: {e}")
         
-    # Test math server individually
-    try:
-        math_client = MultiServerMCPClient({
-            "math": {
-                "url": "https://app-math-zee.azurewebsites.net/mcp",
-                "transport": "streamable_http",
-            }
-        })
-        math_tools = await math_client.get_tools()
-        print(f"✅ Math server tools: {[tool.name for tool in math_tools]}")
-    except Exception as e:
-        print(f"❌ Math server error: {e}")
+    # # Test math server individually
+    # try:
+    #     math_client = MultiServerMCPClient({
+    #         "math": {
+    #             "url": "https://app-math-zee.azurewebsites.net/mcp",
+    #             "transport": "streamable_http",
+    #         }
+    #     })
+    #     math_tools = await math_client.get_tools()
+    #     print(f"✅ Math server tools: {[tool.name for tool in math_tools]}")
+    # except Exception as e:
+    #     print(f"❌ Math server error: {e}")
     
     # Extract the AI response content from the messages
     # math_messages = math_response.get("messages", [])
