@@ -1,0 +1,10 @@
+{
+    "weather": {
+        "url": "https://app-weather-fouumxxwmaqmu.azurewebsites.net/mcp",
+        "transport": "streamable_http"
+    },
+    "math": {
+        "url": "https://app-math.azurewebsites.net/mcp",
+        "transport": "streamable_http"
+    }
+}
