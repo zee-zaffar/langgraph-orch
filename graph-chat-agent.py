@@ -19,35 +19,45 @@ from pathlib import Path
 load_dotenv()
 
 @tool
-def get_weather(location: str) -> str:
+def calculate_monthly_mortgage(principal: float, interest_rate: float, years: int) -> dict:
     """
-    Get the current weather for a given location.
+    Calculate the monthly mortgage payment and totals.
 
-            Args:
-            location (str): The location to get the weather for.
-            returns: str: The current weather description.
+    Args:
+        principal (float): Loan principal amount.
+        interest_rate (float): Annual interest rate in percent (e.g. 3.5).
+        years (int): Loan term in years.
+
+    Returns:
+        dict: {
+            "monthly_payment": float,
+            "total_payment": float,
+            "total_interest": float,
+            "monthly_rate": float,
+            "num_payments": int
+        }
     """
-    weather_data = {
-        "Chicago": "Sunny, 75°F",
-        "New York": "Cloudy, 68°F",
-        "San Francisco": "Foggy, 60°F",
-        "Texas": "Hot, 90°F",
-        "London": "Rainy, 55°F",
-        "Tokyo": "Clear, 70°F"
+    if principal <= 0 or years <= 0:
+        raise ValueError("principal and years must be positive")
+
+    num_payments = int(years * 12)
+    monthly_rate = (interest_rate / 100.0) / 12.0
+
+    if monthly_rate == 0:
+        monthly_payment = principal / num_payments
+    else:
+        monthly_payment = principal * (monthly_rate * (1 + monthly_rate) ** num_payments) / ((1 + monthly_rate) ** num_payments - 1)
+
+    total_payment = monthly_payment * num_payments
+    total_interest = total_payment - principal
+
+    return {
+        "monthly_payment": round(monthly_payment, 2),
+        "total_payment": round(total_payment, 2),
+        "total_interest": round(total_interest, 2),
+        "monthly_rate": monthly_rate,
+        "num_payments": num_payments,
     }
-    return weather_data.get(location, "Location not found")
-
-@tool()
-def add_two_numbers(num1: int, num2: int) -> int:
-    """
-    Add two numbers integers and return the sum as an integer.
-
-            Args:
-            num1 (int): First number to add.
-            num2 (int): Second number to add.
-            returns: int: The sum of two numbers.
-    """
-    return num1 + num2
 
 #Bind the tool to the model
 
@@ -74,69 +84,28 @@ class DynamicMCPTool(BaseTool):
   
 async def get_mcp_tools():
 
-    client = MultiServerMCPClient({
-            "math": {
-            "url": "https://app-math.azurewebsites.net/mcp",
-            "transport": "streamable_http"
-        }
-        # "math": {
-        #     "url": "https://app-weather-fouumxxwmaqmu.azurewebsites.net/mcp",
-        #     "transport": "streamable_http"
-        # }
-    })
+    # Load MCP configuration from JSON file (mcp_config.json expected next to this script)
+    try:
+        config_path = Path(__file__).parent / "mcp_config.json"
+
+        with config_path.open("r", encoding="utf-8") as f:
+            mcp_config = json.load(f)
+    except Exception as e:
+        print(f"⚠️ Failed to load MCP config from {config_path}: {e}")
+        
+    client = MultiServerMCPClient(mcp_config)
 
     # Get all tools from MCP math server
     tools = await client.get_tools()
-    # for tool in tools:
-    #     print(f"🧪 MCP Tool: {tool.name} - {tool.description}")
+    for tool in tools:
+        print(f"🧪 MCP Tool: {tool.name} - {tool.description}")
     return tools
-
-    # math_url = "https://app-math.azurewebsites.net/mcp"
-    # try:
-    #     async with streamablehttp_client(math_url) as (read_stream, write_stream, _):    
-    #         async with ClientSession(read_stream, write_stream) as session:
-    #             await session.initialize()  
-
-    #             # Get mcp tools
-    #             tools_result = await session.list_tools()
-    #             print ("session initialized for MCP tools")
-    #             mcp_tools = tools_result.tools
-    #             print(f"✅ MCP session created with {len(mcp_tools)} tools")
-
-    #             lg_tools = []
-
-    #             if mcp_tools:
-    #                for tool in mcp_tools:
-    #                     print(f"🧪 Converted MCP tool: {tool.name}")
-    #                     lg_tool = DynamicMCPTool(
-    #                         name=tool.name,
-    #                         description=tool.description,
-    #                         server_url=math_url,
-    #                         tool_name =tool.name
-    #                     )
-    #                     print(f"🧪 Converted MCP tool: {tool.name}...")
-    #                     lg_tools.append(lg_tool)
-    #             print ("Converted MCP tools to LG tools:", lg_tools)
-    #             return lg_tools
-    # except Exception as e:
-    #     print(f"❌ MCP tool loading failed: {e}")
-    #     return []
-    
-# async def setup_tools():
-#     llm = get_azure_openai_llm()
-#     lg_tools = await get_mcp_tools()
-#     # lg_tools = await load_mcp_tools(mcp_tools)
-#     print ("Converted LG tools:", lg_tools)
-
-#     static_tools = [get_weather]
-#     all_tools = static_tools + lg_tools
-#     return all_tools, llm
 
 async def create_graph():
     #Bind tools to the llm
     # all_tools, llm = await setup_tools()
     mcp_tools = await get_mcp_tools()
-    all_tools = mcp_tools
+    all_tools = [calculate_monthly_mortgage] + mcp_tools
     llm = get_azure_openai_llm()
     model = llm.bind_tools(all_tools)  # Fixed: bind tools to the llm instance, not create new AzureChatOpenAI  
 
@@ -166,7 +135,7 @@ async def create_graph():
     memory = MemorySaver()
     return workflow.compile(checkpointer=memory)
 
-# async def chat_loop():
+async def chat_loop():
     """Interactive chat loop with conversation memory"""
     graph = await create_graph()
     
@@ -230,21 +199,21 @@ async def create_graph():
             print(f"❌ Error: {e}")
             print("Please try again.")
 
-async def demo_single_interaction():
-    """Demo function showing single interaction"""
-    print("\n🧪 Demo: Single Interaction")
-    print("-" * 30)
+# async def demo_single_interaction():
+#     """Demo function showing single interaction"""
+#     print("\n🧪 Demo: Single Interaction")
+#     print("-" * 30)
     
-    graph = await create_graph()
-    config = {"configurable": {"thread_id": "demo-session"}}
+#     graph = await create_graph()
+#     config = {"configurable": {"thread_id": "demo-session"}}
     
-    response = await graph.ainvoke(
-        {"messages": [HumanMessage(content="Calculate interest using 5 percent rate on my $200000 mortgage balance using the math tool only. Explian which tool did you use to provide the answer")]}, 
-        config=config
-    )
+#     response = await graph.ainvoke(
+#         {"messages": [HumanMessage(content="What is the weather in Chicago and add 9 and 5 using added tools only. Explian which tools did you use to provide the answer")]}, 
+#         config=config
+#     )
     
-    response_content = response["messages"][-1].content
-    print("Final Response:", response_content)
+#     response_content = response["messages"][-1].content
+#     print("Final Response:", response_content)
 
 # Main execution
 async def main():
@@ -259,9 +228,9 @@ async def main():
     # choice = input("Enter choice (1 or 2): ").strip()
     
     # if choice == "1":
-    #     chat_loop()
+    await chat_loop()
     # elif choice == "2":
-    await demo_single_interaction()
+    # await demo_single_interaction()
     # else:
     #     print("Invalid choice. Starting interactive chat loop...")
     #     chat_loop()
