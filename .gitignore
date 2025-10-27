@@ -157,6 +157,14 @@ lg-demo/
 chainlit.toml
 chainlit.md
 
+# Streamlit
+.streamlit/
+.streamlit/*
+*.streamlit.toml
+streamlit_cache/
+.streamlit_cache/
+streamlit_config.toml
+
 # VS Code
 .vscode/
 .vscode/*

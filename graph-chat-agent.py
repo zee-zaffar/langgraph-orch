@@ -118,74 +118,74 @@ async def create_graph():
     memory = MemorySaver()
     return workflow.compile(checkpointer=memory)
 
-async def chat_loop():
-    """Interactive chat loop with conversation memory"""
-    graph = await create_graph()
+# async def chat_loop():
+#     """Interactive chat loop with conversation memory"""
+#     graph = await create_graph()
     
-    print("🤖 LangGraph Chat Agent")
-    print("=" * 50)
-    print("💬 Start chatting! (Type 'quit', 'exit', or 'q' to stop)")
-    print("🔧 Available tools: Weather lookup, Math (addition)")
-    print("=" * 50)
+#     print("🤖 LangGraph Chat Agent")
+#     print("=" * 50)
+#     print("💬 Start chatting! (Type 'quit', 'exit', or 'q' to stop)")
+#     print("🔧 Available tools: Weather lookup, Math (addition)")
+#     print("=" * 50)
     
-    # Thread ID for maintaining conversation memory
-    thread_id = "chat-session-1"
-    config = {"configurable": {"thread_id": thread_id}}
+#     # Thread ID for maintaining conversation memory
+#     thread_id = "chat-session-1"
+#     config = {"configurable": {"thread_id": thread_id}}
     
-    # Initialize conversation history
-    conversation_history = []
+#     # Initialize conversation history
+#     conversation_history = []
     
-    while True:
-        try:
-            # Get user input
-            user_input = input("\n💭 Human: ").strip()
+#     while True:
+#         try:
+#             # Get user input
+#             user_input = input("\n💭 Human: ").strip()
             
-            # Check for exit commands
-            if user_input.lower() in ['quit', 'exit', 'q', 'bye']:
-                print("\n👋 Thanks for chatting! Goodbye!")
-                break
+#             # Check for exit commands
+#             if user_input.lower() in ['quit', 'exit', 'q', 'bye']:
+#                 print("\n👋 Thanks for chatting! Goodbye!")
+#                 break
             
-            # Skip empty inputs
-            if not user_input:
-                print("Human, please enter a message.")
-                continue
+#             # Skip empty inputs
+#             if not user_input:
+#                 print("Human, please enter a message.")
+#                 continue
             
-            # Add user message to history
-            conversation_history.append(HumanMessage(content=user_input))
+#             # Add user message to history
+#             conversation_history.append(HumanMessage(content=user_input))
             
-            print("🔄 Processing...")
+#             print("🔄 Processing...")
             
-            # Invoke the graph with conversation history
-            response = await graph.ainvoke(
-                {"messages": conversation_history}, 
-                config=config
-            )
+#             # Invoke the graph with conversation history
+#             response = await graph.ainvoke(
+#                 {"messages": conversation_history}, 
+#                 config=config
+#             )
             
-            # Get the latest AI response
-            ai_response = response["messages"][-1]
+#             # Get the latest AI response
+#             ai_response = response["messages"][-1]
             
-            # Add AI response to history
-            conversation_history = response["messages"]
+#             # Add AI response to history
+#             conversation_history = response["messages"]
             
-            # Display response
-            print(f"🤖 Assistant: {ai_response.content}")
+#             # Display response
+#             print(f"🤖 Assistant: {ai_response.content}")
             
-            # Show tool usage if any
-            if hasattr(ai_response, 'tool_calls') and ai_response.tool_calls:
-                print(f"🔧 Used tools: {[call['name'] for call in ai_response.tool_calls]}")
+#             # Show tool usage if any
+#             if hasattr(ai_response, 'tool_calls') and ai_response.tool_calls:
+#                 print(f"🔧 Used tools: {[call['name'] for call in ai_response.tool_calls]}")
                 
-        except KeyboardInterrupt:
-            print("\n\n⚠️ Chat interrupted by user.")
-            print("👋 Thanks for chatting! Goodbye!")
-            break
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            print("Please try again.")
+#         except KeyboardInterrupt:
+#             print("\n\n⚠️ Chat interrupted by user.")
+#             print("👋 Thanks for chatting! Goodbye!")
+#             break
+#         except Exception as e:
+#             print(f"❌ Error: {e}")
+#             print("Please try again.")
 
 # Main execution
-async def main():
-    """Main execution function"""
-    await chat_loop()
+# async def main():
+#     """Main execution function"""
+#     await chat_loop()
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())
