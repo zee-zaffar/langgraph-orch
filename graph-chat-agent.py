@@ -2,15 +2,12 @@
 import asyncio
 import os
 from dotenv import load_dotenv
-from langchain_core.tools import tool, BaseTool
+from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import AzureChatOpenAI
 from langgraph.graph import StateGraph, START, END, MessagesState
-from mcp.client.streamable_http import streamablehttp_client
-from mcp import ClientSession
-from pydantic import Field, BaseModel
 from langchain_mcp_adapters.client import MultiServerMCPClient
 import json
 from pathlib import Path
@@ -59,8 +56,6 @@ def calculate_monthly_mortgage(principal: float, interest_rate: float, years: in
         "num_payments": num_payments,
     }
 
-#Bind the tool to the model
-
 # Function to create and return an Azure OpenAI LLM instance
 def get_azure_openai_llm():
     llm = AzureChatOpenAI(
@@ -74,14 +69,6 @@ def get_azure_openai_llm():
 
     return llm
 
-class DynamicMCPTool(BaseTool):
-    """Dynamic LangGraph tool that wraps MCP server tools"""
-    
-    name: str = Field(..., description="Name of the MCP tool")
-    description: str = Field(..., description="Description of the MCP tool")
-    server_url: str = Field(..., description="MCP server URL")
-    tool_name: str = Field(..., description="Original MCP tool name")
-  
 async def get_mcp_tools():
 
     # Load MCP configuration from JSON file (mcp_config.json expected next to this script)
@@ -102,12 +89,10 @@ async def get_mcp_tools():
     return tools
 
 async def create_graph():
-    #Bind tools to the llm
-    # all_tools, llm = await setup_tools()
     mcp_tools = await get_mcp_tools()
     all_tools = [calculate_monthly_mortgage] + mcp_tools
     llm = get_azure_openai_llm()
-    model = llm.bind_tools(all_tools)  # Fixed: bind tools to the llm instance, not create new AzureChatOpenAI  
+    model = llm.bind_tools(all_tools)  
 
     async def call_model(state: MessagesState):
         messages = state["messages"]
@@ -116,12 +101,10 @@ async def create_graph():
 
     def should_continue(state: MessagesState) -> bool:
         last_message = state["messages"][-1]
-        # print ("Last message:", last_message.tool_calls)
         if last_message.tool_calls:
             return "tools"
         return END
 
-    # def get_graph():
     tool_node = ToolNode(all_tools)
     workflow = StateGraph(MessagesState)
     workflow.add_node("agent", call_model)
@@ -199,41 +182,10 @@ async def chat_loop():
             print(f"❌ Error: {e}")
             print("Please try again.")
 
-# async def demo_single_interaction():
-#     """Demo function showing single interaction"""
-#     print("\n🧪 Demo: Single Interaction")
-#     print("-" * 30)
-    
-#     graph = await create_graph()
-#     config = {"configurable": {"thread_id": "demo-session"}}
-    
-#     response = await graph.ainvoke(
-#         {"messages": [HumanMessage(content="What is the weather in Chicago and add 9 and 5 using added tools only. Explian which tools did you use to provide the answer")]}, 
-#         config=config
-#     )
-    
-#     response_content = response["messages"][-1].content
-#     print("Final Response:", response_content)
-
 # Main execution
 async def main():
-    """Main execution function - FIXED: Made async"""
-    # print("🚀 LangGraph Chat Agent with MCP Integration Starting...")
-    
-    # # Choose execution mode
-    # print("\nSelect mode:")
-    # print("1. Interactive chat loop")
-    # print("2. Single demo interaction")
-    
-    # choice = input("Enter choice (1 or 2): ").strip()
-    
-    # if choice == "1":
+    """Main execution function"""
     await chat_loop()
-    # elif choice == "2":
-    # await demo_single_interaction()
-    # else:
-    #     print("Invalid choice. Starting interactive chat loop...")
-    #     chat_loop()
 
 if __name__ == "__main__":
     asyncio.run(main())

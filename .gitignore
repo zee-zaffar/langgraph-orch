@@ -143,7 +143,32 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+my-env/
 lg-demo/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+*.ipynb-checkpoint
+.ipynb_checkpoints/
+
+# Chainlit (if any remnants)
+.chainlit/
+chainlit.toml
+chainlit.md
+
+# VS Code
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Test files and temporary files
+test_*.py
+*_test.py
+test_mcp_integration.py
 
 # Spyder project settings
 .spyderproject
